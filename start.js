@@ -22,7 +22,8 @@ client.on('ready', () => {
     client.user.setActivity("semicroustillants.usp-3.fr", "WATCHING");
     
     console.log("CROUSTIBOT READY !")
-    const requests_channel = client.guilds.get("485017643070390285").channels.get("568603408609705995");
+    // const requests_channel = client.guilds.get("485017643070390285").channels.get("568603408609705995");
+    const requests_channel = client.guilds.get("554684322301476868").channels.get("569828631527030786");
 
     var auth_tokens = {};
     var dispos = {};
