@@ -42,6 +42,7 @@ client.on('ready', () => {
                 date: processDay.getDate(),
                 month: processDay.getMonth(),
                 outofmonth: (processDay.getMonth() != new Date(today).getMonth()),
+                impossible: (processDay.getTime() < today-86400000),
                 today: (processDay.getDate() == new Date(today).getDate() && processDay.getMonth() == new Date(today).getMonth()),
                 prefer: (dispos[processDay.ENCODE()] >= 6),
             });
