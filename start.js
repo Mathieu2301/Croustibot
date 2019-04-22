@@ -12,7 +12,7 @@ log("Sockets on port " + port);
 var firebase = require('firebase-admin');
 
 firebase.initializeApp({
-  credential: firebase.credential.cert(require("./firebase.json")),
+  credential: firebase.credential.cert(require("B:\\BLAST\\firebase.json")),
   databaseURL: "https://iridium-blast.firebaseio.com"
 });
 
