@@ -1,0 +1,17 @@
+{
+  "name": "croustibot",
+  "version": "1.0.0",
+  "main": "start.js",
+  "scripts": {
+    "start": "node start",
+    "dev": "nodemon start"
+  },
+  "author": "USP5, Mathieu Colmon",
+  "license": "USP 2018",
+  "dependencies": {
+    "discord.js": "latest",
+    "firebase-admin": "latest",
+    "request": "latest",
+    "socket.io": "latest"
+  }
+}
