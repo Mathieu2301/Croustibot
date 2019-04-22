@@ -145,13 +145,13 @@ client.on('ready', () => {
                             user: scrim.discordID,
                             team: scrim.team_name,
                             date: scrim.date,
-                            time: scrim.time,
+                            time: (scrim.time || "--"),
 
                             maps: {
-                                control: scrim.map_control,
-                                hybrid: scrim.map_hybrid,
-                                assault: scrim.map_assault,
-                                escort: scrim.map_escort,
+                                control: (scrim.map_control || "--"),
+                                hybrid: (scrim.map_hybrid   || "--"),
+                                assault: (scrim.map_assault || "--"),
+                                escort: (scrim.map_escort   || "--"),
                             },
                         });
         
