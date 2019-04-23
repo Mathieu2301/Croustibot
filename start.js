@@ -19,7 +19,6 @@ firebase.initializeApp({
 var db = firebase.database();
 
 client.on('ready', () => {
-    client.user.setActivity("semicroustillants.usp-3.fr", "WATCHING");
     
     console.log("CROUSTIBOT READY !")
     // const requests_channel = client.guilds.get("485017643070390285").channels.get("568603408609705995");
@@ -59,7 +58,6 @@ client.on('ready', () => {
         }
         io.emit("planning", planning);
     }
-
 
     var requests_users_ip = {};
     var maxRequestPerIP = 2;
@@ -101,6 +99,8 @@ client.on('ready', () => {
 
             db.ref("croustibot/requests/").on("value", snapshot => socket.emit("admin_update_requests", snapshot.val()));
             db.ref("croustibot/scrims/")  .on("value", snapshot => socket.emit("admin_update_scrims", snapshot.val()));
+            db.ref("croustibot/config/twitch_channels").on("value", snapshot => socket.emit("admin_update_streams", snapshot.val()));
+
 
             socket.on("admin_accept_request", function(requests_id){
                 db.ref("croustibot/requests/" + requests_id).once("value", function(snapshot){
@@ -110,7 +110,8 @@ client.on('ready', () => {
                 })
             })
 
-            socket.on("setDispo", (date, dispo=true) => db.ref("croustibot/dispos/" + new Date(date).ENCODE()).set(dispo.toString()))
+            socket.on("admin_edit_dispos", (date, dispo=true) => db.ref("croustibot/dispos/" + new Date(date).ENCODE()).set(dispo.toString()))
+            socket.on("admin_edit_streams", (newlist) => db.ref("croustibot/config/twitch_channels").set(newlist));
         }
 
 
@@ -180,6 +181,41 @@ client.on('ready', () => {
             }
         })
     })
+
+    function getStreams(){
+        db.ref("croustibot/config/twitch_channels").once("value", function(snapshot){
+            var channels = snapshot.val();
+            var streaming = false;
+            channels.forEach(function(channel_name){
+                
+                request.get('https://api.twitch.tv/kraken/streams/'+ channel_name +'?client_id=ozn5oq3ydzudzd5l8wzuh4vteqdyne', function(error, response, body) {
+                    if (!streaming){
+                        try{
+                            var channel = JSON.parse(body);
+                            if (channel["stream"] != null) { 
+                                streaming = true;
+                                client.user.setPresence({
+                                    game: {
+                                        name: "Semi-Croustillants (" + channel_name + ')',
+                                        type: "STREAMING",
+                                        url: "https://www.twitch.tv/"+channel_name
+                                    }
+                                });
+                            }
+                        }catch(e){
+                            console.error({
+                                message: "CAN'T PARSE TWITCH API RESPONSE",
+                                code: response.statusCode,
+                                error, body
+                            })
+                        }
+                    }
+                }); 
+            });
+        });
+    }
+    setInterval(getStreams, 30000);
+    getStreams();
 
 });
 
