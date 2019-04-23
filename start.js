@@ -65,9 +65,7 @@ client.on('ready', () => {
     io.on("connection", function(socket){
         var ip = socket.handshake.address;
 
-        socket.on("admin_panel_login", function(session, callback){
-            console.log(session)
-        
+        socket.on("admin_panel_login", function(session, callback){        
             if (session.password){
 
                 if (session.password == config.panel_admin_password){
@@ -99,23 +97,25 @@ client.on('ready', () => {
 
             db.ref("croustibot/requests/").on("value", snapshot => socket.emit("admin_update_requests", snapshot.val()));
             db.ref("croustibot/scrims/")  .on("value", snapshot => socket.emit("admin_update_scrims", snapshot.val()));
-            db.ref("croustibot/config/twitch_channels").on("value", snapshot => socket.emit("admin_update_streams", snapshot.val()));
-
+            db.ref("croustibot/config/twitch_channels").on("value", snapshot => socket.emit("admin_update_streams", snapshot.val().filter(v=>v)));
 
             socket.on("admin_accept_request", function(requests_id){
                 db.ref("croustibot/requests/" + requests_id).once("value", function(snapshot){
                     var scrim = snapshot.val();
                     db.ref("croustibot/scrims/" + scrim.date.replace(/\//g, '-')).set(scrim);
-                    db.ref("croustibot/requests/" + requests_id).delete();
+                    db.ref("croustibot/requests/" + requests_id).remove();
                 })
             })
+            socket.on("admin_ignore_request", requests_id => db.ref("croustibot/requests/" + requests_id).remove())
+            socket.on("admin_delete_scrim", scrim_date => db.ref("croustibot/scrims/" + scrim_date).remove())
 
             socket.on("admin_edit_dispos", (date, dispo=true) => db.ref("croustibot/dispos/" + new Date(date).ENCODE()).set(dispo.toString()))
-            socket.on("admin_edit_streams", (newlist) => db.ref("croustibot/config/twitch_channels").set(newlist));
+            socket.on("admin_edit_streams", (newlist) => { db.ref("croustibot/config/twitch_channels").set(newlist); getStreams(); });
         }
 
 
         socket.emit("planning", planning);
+        getStreams();
 
         socket.on("newScrimRequest", function(scrim, callback){
             if (!requests_users_ip[ip]) requests_users_ip[ip] = 0;
@@ -201,6 +201,7 @@ client.on('ready', () => {
                                         url: "https://www.twitch.tv/"+channel_name
                                     }
                                 });
+                                io.emit("stream_change", channel_name);
                             }
                         }catch(e){
                             console.error({
