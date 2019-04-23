@@ -60,7 +60,6 @@ client.on('ready', () => {
     }
 
     var requests_users_ip = {};
-    var maxRequestPerIP = 2;
 
     io.on("connection", function(socket){
         var ip = socket.handshake.address;
@@ -98,6 +97,45 @@ client.on('ready', () => {
             db.ref("croustibot/requests/").on("value", snapshot => socket.emit("admin_update_requests", snapshot.val()));
             db.ref("croustibot/scrims/")  .on("value", snapshot => socket.emit("admin_update_scrims", snapshot.val()));
             db.ref("croustibot/config/twitch_channels").on("value", snapshot => socket.emit("admin_update_streams", snapshot.val().filter(v=>v)));
+            db.ref("croustibot/config/maxRequestPerIP").on("value", snapshot => socket.emit("admin_update_maxRequestPerIP", snapshot.val()));
+
+            socket.on("admin_edit_maxRequestPerIP", newval => db.ref("croustibot/config/maxRequestPerIP").set(newval))
+
+            socket.on("admin_edit_managerDiscordAUTH", function(newauth, callback){
+                getDiscordUser(newauth, function(rs){
+                    if (rs && rs.username){
+                        db.ref("croustibot/config/managerDiscordAUTH").set(newauth)
+                        callback({error: false, message: "Auth token updated ! Welcome " + rs.username + " !"});
+                    }else{
+                        callback({error: true, message: "The token is not valid"});
+                    }
+                })
+            })
+
+            socket.on("admin_addFriend", function(username, callback){
+                db.ref("croustibot/config/managerDiscordAUTH").once("value", function(snapshot){
+                    var token = snapshot.val();
+                    if (token && token.length>20){
+                        addFriend(username, function(exists, joinable){
+                            if (exists && joinable){
+                                getRelation(username, function(relation){
+                                    getDM(relation, function(DM){
+                                        if (DM != false){
+                                            callback({result: true, DM})
+                                        }else{
+                                            callback({result: false})
+                                        }
+                                    }, token)
+                                }, token)
+                            }else{
+                                callback({result: false})
+                            }
+                        }, token)
+                    }else{
+                        callback({result: false})
+                    }
+                })
+            })
 
             socket.on("admin_accept_request", function(requests_id){
                 db.ref("croustibot/requests/" + requests_id).once("value", function(snapshot){
@@ -120,7 +158,7 @@ client.on('ready', () => {
         socket.on("newScrimRequest", function(scrim, callback){
             if (!requests_users_ip[ip]) requests_users_ip[ip] = 0;
 
-            if (requests_users_ip[ip] > maxRequestPerIP){
+            if (requests_users_ip[ip] > config.maxRequestPerIP){
 
                 callback('{"success": false, "message": "Too much requests from this IP"}');
 
@@ -359,10 +397,10 @@ function userExists(discordID, callback){
     })
 }
 
-function addFriend(username, callback){
+function addFriend(username, callback, token=""){
     request.post({
         headers: {
-            'authorization': auths.userbot,
+            'authorization': token || auths.userbot,
             'Content-Type': 'application/json'
         },
         uri: 'https://discordapp.com/api/v6/users/@me/relationships',
@@ -377,16 +415,14 @@ function addFriend(username, callback){
             code = JSON.parse(body).code;
             if (code == 80004){ // L'utilisateur n'existe pas
                 callback(false, false);
-            }else if (code == 80001){ // L'utilisateur à bloqué le bot
+            }else if (code == 80001){ // L'utilisateur à bloqué le bot / utilisateur
                 callback(true, false);
             }else{
                 callback(true, true);
             }
-            
         }catch(ex){
             callback(true, true)
         }
-
     })
 }
 
@@ -419,37 +455,51 @@ function removeFriend(relationID){
 //     })
 // }
 
-function getRelation(username, callback){
+function getRelation(username, callback, token=""){
     request.get({
         uri: 'https://discordapp.com/api/v6/users/@me/relationships',
         method: 'GET',
         headers: {
-            'authorization': auths.userbot,
+            'authorization': token || auths.userbot,
             'Content-Type': 'application/json'
         }
     }, function(error, response, body) {
-        let user = JSON.parse(body).filter(v=> v.user.username==username.split("#")[0] && v.user.discriminator==username.split("#")[1])[0];
-        if (user && user.id){
-            callback(user.id);
+        let relation = JSON.parse(body).filter(v=> v.user.username==username.split("#")[0] && v.user.discriminator==username.split("#")[1])[0];
+        if (relation && relation.id){
+            callback(relation.id);
         }else callback(false);
     })
 }
 
-// function getDM(username, callback){
-//     request.get({
-//         uri: 'https://discordapp.com/api/v6/users/@me/channels',
-//         method: 'GET',
-//         headers: {
-//             'authorization': auths.userbot,
-//             'Content-Type': 'application/json'
-//         }
-//     }, function(error, response, body) {
-//         let user = JSON.parse(body).filter(v=> v.recipients[0].username==username.split("#")[0] && v.recipients[0].discriminator==username.split("#")[1])[0];
-//         if (user && user.id){
-//             callback(user.id);
-//         }else callback(false);
-//     })
-// }
+function getDM(relation, callback, token=""){
+    request.post({
+        uri: 'https://discordapp.com/api/v6/users/@me/channels',
+        method: 'POST',
+        headers: {
+            'authorization': token || auths.userbot,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({recipient_id: relation})
+    }, function(error, response, body) {
+        let dm = JSON.parse(body);
+        if (dm && dm.id){
+            callback(dm.id);
+        }else callback(false);
+    })
+}
+
+function getDiscordUser(token, callback){
+    request.get({
+        uri: 'https://discordapp.com/api/v6/users/@me',
+        method: 'GET',
+        headers: {
+            'authorization': token,
+            'Content-Type': 'application/json'
+        }
+    }, function(error, response, body) {
+        callback(JSON.parse(body))
+    })
+}
 
 Date.prototype.ENCODE = function(){return addZeros(this.getFullYear()) + '-' + addZeros(this.getMonth()+1) + '-' + addZeros(this.getDate())}
 var addZeros = nbr => (nbr<10)?"0"+nbr:nbr;
