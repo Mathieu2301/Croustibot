@@ -25,11 +25,17 @@ client.on('ready', () => {
     // const requests_channel = client.guilds.get("485017643070390285").channels.get("568603408609705995");
     const requests_channel = client.guilds.get("554684322301476868").channels.get("569828631527030786");
 
+    var config = {};
     var auth_tokens = {};
     var dispos = {};
+    var scrims = {};
     var planning = [];
 
-    updateCalendar();
+    db.ref("croustibot/config")     .on("value", (snapshot) => config = snapshot.val())
+    db.ref("croustibot/auth_tokens").on("value", (snapshot) => auth_tokens = snapshot.val())
+    db.ref("croustibot/dispos")     .on("value", (snapshot) =>{dispos = snapshot.val();updateCalendar();})
+    db.ref("croustibot/scrims")     .on("value", (snapshot) => scrims = snapshot.val())
+
     function updateCalendar(){
 
         var today = Date.now();
@@ -37,6 +43,7 @@ client.on('ready', () => {
         var processDay = new Date(new Date(today).getFullYear(), new Date(today).getMonth(), 1);
         processDay.setTime(processDay.getTime()+((1-processDay.getDay())*86400000))
         
+        planning = [];
         while (planning.length != 42){
             planning.push({
                 time: processDay.getTime(),
@@ -45,88 +52,74 @@ client.on('ready', () => {
                 outofmonth: (processDay.getMonth() != new Date(today).getMonth()),
                 impossible: (processDay.getTime() < today-86400000),
                 today: (processDay.getDate() == new Date(today).getDate() && processDay.getMonth() == new Date(today).getMonth()),
-                prefer: (dispos[processDay.ENCODE()] >= 6),
+                prefer: (dispos[processDay.ENCODE()] == "true"),
+                event: scrims[processDay.ENCODE()]
             });
             processDay.setTime(processDay.getTime()+(86400000))
         }
         io.emit("planning", planning);
     }
 
-    db.ref("croustibot/auth_tokens").on("value", function(snapshot){
-        auth_tokens = snapshot.val()
-    })
 
-    db.ref("croustibot/dispos").on("value", function(snapshot){
-        dispos = snapshot.val()
-    })
-
-    var requests = {};
+    var requests_users_ip = {};
     var maxRequestPerIP = 2;
 
     io.on("connection", function(socket){
         var ip = socket.handshake.address;
 
-        socket.on("admin_panel_login", function(username, auth, callback){
-            if (auth_tokens[username +'@'+ auth] && Date.now() < auth_tokens[username +'@'+ auth]){
-                callback({auth, username});
-                admin(username, auth)
-            }else{
-                var code = randomNb(4)
-                var auth = random(50);
-                
-                socket.emit("admin_waiting_token", code);
+        socket.on("admin_panel_login", function(session, callback){
+            console.log(session)
+        
+            if (session.password){
 
-                listen();
-
-                function listen(){
-                    client.once('message', msg => {
-                        if (socket.disconnected) return;
-                        if (msg.channel == requests_channel && msg.content == code){
-                            var username = msg.author.username.replace(/\//g, "-");
-                            db.ref("croustibot/auth_tokens/" + username +'@'+ auth).set(Date.now() + (7*86400000));
-                            callback({auth, username});
-                            admin(username, auth)
-                            msg.delete();
-                        }else listen()
+                if (session.password == config.panel_admin_password){
+                    var auth = random(50);
+    
+                    db.ref("croustibot/auth_tokens/" + auth).set({
+                        ip,
+                        date: Date.now(),
+                        expire: Date.now() + (7*86400000)
                     });
+                    callback({result:true, auth});
+                    pannel_admin(auth)
+                }else{
+                    callback({result:false, message: "Wrong password"});
+                }
+                
+            }else{
+                if (auth_tokens[session.auth] && Date.now() < auth_tokens[session.auth].expire){
+                    callback({result:true, auth: session.auth});
+                    pannel_admin(session.auth)
+                }else{
+                    callback({result: false});
                 }
             }
+            
         })
 
-        function admin(username, auth){
+        function pannel_admin(auth){
 
-            db.ref("croustibot/requests/").on("value", function(snapshot){
-                socket.emit("admin_update_requests", snapshot.val());
-            })
+            db.ref("croustibot/requests/").on("value", snapshot => socket.emit("admin_update_requests", snapshot.val()));
+            db.ref("croustibot/scrims/")  .on("value", snapshot => socket.emit("admin_update_scrims", snapshot.val()));
 
-            socket.on("admin_accept_request", function(request_id){
-                db.ref("croustibot/requests/" + request_id).once("value", function(snapshot){
+            socket.on("admin_accept_request", function(requests_id){
+                db.ref("croustibot/requests/" + requests_id).once("value", function(snapshot){
                     var scrim = snapshot.val();
-                    db.ref("croustibot/scrims/" + scrim.date.replace(/\//g, '-') + ' ' + scrim.time).set(scrim);
-                    db.ref("croustibot/requests/" + request_id).remove();
+                    db.ref("croustibot/scrims/" + scrim.date.replace(/\//g, '-')).set(scrim);
+                    db.ref("croustibot/requests/" + requests_id).delete();
                 })
             })
 
-            socket.on("setDispo", function(date, dispo){
-                if (dispo){
-                    var newDispos = dispo[date] || [];
-                    if (!newDispos.includes(username)) newDispos.push(username);
-                    db.ref("croustibot/dispos/" + date).set(newDispos);
-                }else{
-                    var newDispos = (dispo[date] || []).filter(v=> v!=username);
-                    db.ref("croustibot/dispos/" + date).set(newDispos);
-                }
-            })
-
+            socket.on("setDispo", (date, dispo=true) => db.ref("croustibot/dispos/" + new Date(date).ENCODE()).set(dispo.toString()))
         }
 
 
         socket.emit("planning", planning);
 
         socket.on("newScrimRequest", function(scrim, callback){
-            if (!requests[ip]) requests[ip] = 0;
+            if (!requests_users_ip[ip]) requests_users_ip[ip] = 0;
 
-            if (requests[ip] > maxRequestPerIP){
+            if (requests_users_ip[ip] > maxRequestPerIP){
 
                 callback('{"success": false, "message": "Too much requests from this IP"}');
 
@@ -135,13 +128,13 @@ client.on('ready', () => {
                 userExists(scrim.discordID, function(rs){
 
                     if (rs){
-                        requests[ip]++;
+                        requests_users_ip[ip]++;
 
                         callback('{"success": true, "message": "We will contact you soon on Discord"}')
         
                         requests_channel.send("@here Nouvelle demande de scrim")
 
-                        db.ref("croustibot/requests/").push({
+                        db.ref("croustibot/requests").push({
                             user: scrim.discordID,
                             team: scrim.team_name,
                             date: scrim.date,
