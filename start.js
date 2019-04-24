@@ -193,11 +193,12 @@ client.on('ready', () => {
 
                             maps: {
                                 control: (scrim.map_control || "--"),
-                                hybrid: (scrim.map_hybrid   || "--"),
+                                hybrid: (scrim.map_hybrid  || "--"),
                                 assault: (scrim.map_assault || "--"),
-                                escort: (scrim.map_escort   || "--"),
+                                escort: (scrim.map_escort  || "--"),
                             },
                         });
+
         
                         newEmbedDesc({
                             "Pseudo:  ": scrim.discordID,
@@ -206,15 +207,14 @@ client.on('ready', () => {
                             "Jour:     ": scrim.date,
                             "Heure:   ": (scrim.time || "--"),
                             "":"",
-                            "Control map:  ": (scrim.map_control || "--"),
-                            "Hybrid map:   ": (scrim.map_hybrid  || "--"),
-                            "Assault map:  ": (scrim.map_assault || "--"),
-                            "Escort map:    ": (scrim.map_escort  || "--"),
+                            "Control map:  ": getMap(scrim.map_control, "control"),
+                            "Hybrid map:   ": getMap(scrim.map_hybrid, "hybrid"),
+                            "Assault map:  ": getMap(scrim.map_assault, "assault"),
+                            "Escort map:    ": getMap(scrim.map_escort, "escort"),
                         }, function(desc){
                             requests_channel.send(new Discord.RichEmbed()
                                 .setColor("DARK_GREEN")
-                                .setTitle(desc)
-                                .setDescription("[Gérer les demandes](http://semicroustillants.usp-3.fr/admin/)"));
+                                .setDescription(desc+"\n[Gérer les demandes](http://semicroustillants.usp-3.fr/admin/)"));
                         })
         
                         // getDM(req.body.discordID, function(channelID){
@@ -267,6 +267,8 @@ client.on('ready', () => {
     }
     setInterval(getStreams, 30000);
     getStreams();
+
+    const getMap = (mapUID, type) => ((mapUID && mapUID.length > 4) ? maps[type][mapUID] : "--");
 
 });
 
