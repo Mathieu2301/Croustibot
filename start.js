@@ -29,11 +29,13 @@ client.on('ready', () => {
     var dispos = {};
     var scrims = {};
     var planning = [];
+    var maps = []
 
-    db.ref("croustibot/config")     .on("value", (snapshot) => config = snapshot.val())
-    db.ref("croustibot/auth_tokens").on("value", (snapshot) => auth_tokens = snapshot.val())
-    db.ref("croustibot/dispos")     .on("value", (snapshot) =>{dispos = snapshot.val();updateCalendar();})
-    db.ref("croustibot/scrims")     .on("value", (snapshot) => scrims = snapshot.val())
+    db.ref("croustibot/config")     .on("value", snapshot => config = snapshot.val())
+    db.ref("croustibot/auth_tokens").on("value", snapshot => auth_tokens = snapshot.val())
+    db.ref("croustibot/dispos")     .on("value", snapshot =>{dispos = snapshot.val();updateCalendar();})
+    db.ref("croustibot/scrims")     .on("value", snapshot =>{scrims = snapshot.val();updateCalendar();})
+    db.ref("croustibot/config/maps").on("value", snapshot =>{maps = snapshot.val(); io.emit("maps", maps);});
 
     function updateCalendar(){
 
@@ -52,7 +54,7 @@ client.on('ready', () => {
                 impossible: (processDay.getTime() < today-86400000),
                 today: (processDay.getDate() == new Date(today).getDate() && processDay.getMonth() == new Date(today).getMonth()),
                 prefer: (dispos[processDay.ENCODE()] == "true"),
-                event: scrims[processDay.ENCODE()]
+                event: scrims[processDay.ENCODE_DT()]
             });
             processDay.setTime(processDay.getTime()+(86400000))
         }
@@ -140,12 +142,21 @@ client.on('ready', () => {
             socket.on("admin_accept_request", function(requests_id){
                 db.ref("croustibot/requests/" + requests_id).once("value", function(snapshot){
                     var scrim = snapshot.val();
-                    db.ref("croustibot/scrims/" + scrim.date.replace(/\//g, '-')).set(scrim);
-                    db.ref("croustibot/requests/" + requests_id).remove();
+                    if (scrim && scrim.date){
+                        db.ref("croustibot/scrims/" + scrim.date.replace(/\//g, '-')).set(scrim);
+                        db.ref("croustibot/requests/" + requests_id).remove();
+                    }
                 })
             })
             socket.on("admin_ignore_request", requests_id => db.ref("croustibot/requests/" + requests_id).remove())
             socket.on("admin_delete_scrim", scrim_date => db.ref("croustibot/scrims/" + scrim_date).remove())
+
+            socket.on("admin_update_scrim", function(date, scrim){
+                db.ref("croustibot/scrims/" + date).set(scrim)
+            })
+
+            socket.on("admin_add_map", (type, name) => db.ref("croustibot/config/maps/" + type).push(name))
+            socket.on("admin_remove_map", (type, UID) => db.ref("croustibot/config/maps/" + type + "/" + UID).remove())
 
             socket.on("admin_edit_dispos", (date, dispo=true) => db.ref("croustibot/dispos/" + new Date(date).ENCODE()).set(dispo.toString()))
             socket.on("admin_edit_streams", (newlist) => { db.ref("croustibot/config/twitch_channels").set(newlist); getStreams(); });
@@ -153,6 +164,7 @@ client.on('ready', () => {
 
 
         socket.emit("planning", planning);
+        socket.emit("maps", maps);
         getStreams();
 
         socket.on("newScrimRequest", function(scrim, callback){
@@ -501,7 +513,8 @@ function getDiscordUser(token, callback){
     })
 }
 
-Date.prototype.ENCODE = function(){return addZeros(this.getFullYear()) + '-' + addZeros(this.getMonth()+1) + '-' + addZeros(this.getDate())}
+Date.prototype.ENCODE = function(){return this.getFullYear() + '-' + addZeros(this.getMonth()+1) + '-' + addZeros(this.getDate())}
+Date.prototype.ENCODE_DT = function(){return addZeros(this.getDate()) + '-' + addZeros(this.getMonth()+1) + '-' + this.getFullYear()}
 var addZeros = nbr => (nbr<10)?"0"+nbr:nbr;
 var randomNb = (len) => Math.floor(Math.random()*Math.pow(10,len));
 function random(len) {var a = "";var c = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";for (var i = 0; i < len; i++) a += c.charAt(Math.floor(Math.random() * c.length));return a;}
