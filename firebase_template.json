@@ -1,0 +1,38 @@
+{
+  "config" : {
+    "managerDiscordAUTH" : "",
+    "maps" : {
+      "assault" : {
+        "-LdBhkePZXUFnwgcU_0A" : "HANAMURA",
+        "-LdBhmoNZaqqE2Vge412" : "HORIZON LUNAR COLONY",
+        "-LdBhnU87GW4G1_9V_QY" : "PARIS",
+        "-LdBhoYjmpFIBNxgkmSm" : "TEMPLE OF ANUBIS",
+        "-LdBhpOuQJMAaVAV-yh5" : "VOLSKAYA INDUSTRIES"
+      },
+      "control" : {
+        "-LdBhN5QllDF5ZKUunuS" : "BUSAN",
+        "-LdBhYNZV0cJY8CZimoc" : "ILIOS",
+        "-LdBh_HN1WNWFu5AX9A6" : "LIJANG TOWER",
+        "-LdBhaA6Z1FilWUsLMt7" : "NEPAL",
+        "-LdBhbCihBPTRlBWnxQH" : "OASIS"
+      },
+      "escort" : {
+        "-LdBhsKM0HQGdFA-Zi8w" : "DORADO",
+        "-LdBhtAyojcd7AqeGTIR" : "HAVANA",
+        "-LdBhtpFRb6ajg1I2Vjm" : "JUNKERTOWN",
+        "-LdBhuZ2_WB2Y2iot5d_" : "RIALTO",
+        "-LdBhvdfm6FC8bcPxZGA" : "ROUTE 66",
+        "-LdBhwV7qMdrnwX4nZsE" : "WATCHPOINT: GIBRALTAR"
+      },
+      "hybrid" : {
+        "-LdBhf6z68p8mLZNX_F3" : "BLIZZARD WORLD",
+        "-LdBhfgUUcQfXBsL9BRp" : "EICHENWALDE",
+        "-LdBhgLQG6ygvVSMe4Cm" : "HOLLYWOOD",
+        "-LdBhhekpn_30o972ahw" : "KING'S ROW",
+        "-LdBhiQrD8QY-toIMoPa" : "NUMBANI"
+      }
+    },
+    "maxRequestPerIP" : "6",
+    "panel_admin_password" : "password"
+  }
+}
