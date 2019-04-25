@@ -32,7 +32,7 @@ client.on('ready', () => {
     var maps = []
 
     db.ref("croustibot/config")     .on("value", snapshot => config = snapshot.val())
-    db.ref("croustibot/auth_tokens").on("value", snapshot => auth_tokens = snapshot.val())
+    db.ref("croustibot/auth_tokens").on("value", snapshot => auth_tokens = snapshot.val() || {})
     db.ref("croustibot/dispos")     .on("value", snapshot =>{dispos = snapshot.val();updateCalendar();})
     db.ref("croustibot/scrims")     .on("value", snapshot =>{scrims = snapshot.val();updateCalendar();})
     db.ref("croustibot/config/maps").on("value", snapshot =>{maps = snapshot.val(); io.emit("maps", maps);});
@@ -46,6 +46,7 @@ client.on('ready', () => {
         
         planning = [];
         while (planning.length != 42){
+
             planning.push({
                 time: processDay.getTime(),
                 date: processDay.getDate(),
@@ -54,7 +55,7 @@ client.on('ready', () => {
                 impossible: (processDay.getTime() < today-86400000),
                 today: (processDay.getDate() == new Date(today).getDate() && processDay.getMonth() == new Date(today).getMonth()),
                 prefer: (dispos[processDay.ENCODE()] == "true"),
-                event: scrims[processDay.ENCODE_DT()]
+                event: ((scrims) ? scrims[processDay.ENCODE_DT()] : false)
             });
             processDay.setTime(processDay.getTime()+(86400000))
         }
@@ -98,7 +99,7 @@ client.on('ready', () => {
 
             db.ref("croustibot/requests/").on("value", snapshot => socket.emit("admin_update_requests", snapshot.val()));
             db.ref("croustibot/scrims/")  .on("value", snapshot => socket.emit("admin_update_scrims", snapshot.val()));
-            db.ref("croustibot/config/twitch_channels").on("value", snapshot => socket.emit("admin_update_streams", snapshot.val().filter(v=>v)));
+            db.ref("croustibot/config/twitch_channels").on("value", snapshot => socket.emit("admin_update_streams", (snapshot.val()) ? snapshot.val().filter(v=>v) : []));
             db.ref("croustibot/config/maxRequestPerIP").on("value", snapshot => socket.emit("admin_update_maxRequestPerIP", snapshot.val()));
 
             socket.on("admin_edit_maxRequestPerIP", newval => db.ref("croustibot/config/maxRequestPerIP").set(newval))
@@ -234,7 +235,7 @@ client.on('ready', () => {
 
     function getStreams(){
         db.ref("croustibot/config/twitch_channels").once("value", function(snapshot){
-            var channels = snapshot.val();
+            var channels = snapshot.val() || [];
             var streaming = false;
             channels.forEach(function(channel_name){
                 
@@ -347,7 +348,8 @@ client.on('message', msg => {
 
         var choix = texte.split(" ");
         var title = choix.shift().replace(/_/g, " ");
-        const reaction = ['☄','💥','🔥','⚡','💨','🌝','🌍','☀','💪','❄','🤛'];
+
+        const reaction = (msg.guild.emojis.array().length >= 1) ? msg.guild.emojis.array() : ['☄','💥','🔥','⚡','💨','🌝','🌍','☀','💪','❄','🤛'];
         
         if (choix.length <= reaction.length){
             log("Nouveau sondage : " + title);
@@ -373,6 +375,41 @@ client.on('message', msg => {
         }else{
             msg.channel.send("Trop d'arguments ! Maximum = " + reaction.length);
         }
+        msg.delete();
+    }else if (msg.content.startsWith('!dispos')) {
+
+        day = new Date(Date.now());
+        while (day.getDay() != 1){
+            day.setTime(day.getTime()-86400000);
+        }
+
+        var jours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
+        var days = [];
+
+        days.push(jours[day.getDay()] + " " + addZeros(day.getDate()) + "/" + addZeros(day.getMonth()));
+        day.setTime(day.getTime()+86400000);
+        while (day.getDay() != 1){
+            days.push(jours[day.getDay()] + " " + addZeros(day.getDate()) + "/" + addZeros(day.getMonth()));
+            day.setTime(day.getTime()+86400000);
+        }
+
+        console.log(days);
+
+
+        msg.channel.send("__**@here Quelles sont vos disponibilités ?**__\n")
+
+        var i = 0;
+        next();
+
+        function next(){
+            const embed = new RichEmbed().setTitle(days[i]).setColor(0xffff00);
+
+            msg.channel.send(embed).then(embed_message => {
+                i++;
+                if (i < days.length) setTimeout(next, 1000);
+            });
+        }
+            
         msg.delete();
     }
 
