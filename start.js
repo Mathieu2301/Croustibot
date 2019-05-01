@@ -10,6 +10,7 @@ const io = require('socket.io')(port);
 log("Sockets on port " + port);
 
 var firebase = require('firebase-admin');
+var parser = new (require('ua-parser-js'));
 
 firebase.initializeApp({
   credential: firebase.credential.cert(require("B:\\BLAST\\firebase.json")),
@@ -64,8 +65,28 @@ client.on('ready', () => {
 
     var requests_users_ip = {};
 
+    var online_clients = {};
+
     io.on("connection", function(socket){
         var ip = socket.handshake.address;
+
+        var userAgent = parser.setUA(socket.handshake.headers['user-agent']).getResult();
+
+        online_clients[socket.id] = {
+            socket_id: socket.id,
+            admin: false,
+
+            address: socket.handshake.address.replace("::ffff:", ""),
+            time: socket.handshake.time,
+            secure: socket.handshake.secure,
+            url: socket.handshake.headers.url,
+            browser: userAgent.browser,
+            device: userAgent.device,
+            os: userAgent.os,
+            language: socket.handshake.headers['accept-language'].split(",")[0]
+        };
+
+        socket.on("disconnect", ()=> delete online_clients[socket.id]);
 
         socket.on("admin_panel_login", function(session, callback){        
             if (session.password){
@@ -96,6 +117,8 @@ client.on('ready', () => {
         })
 
         function pannel_admin(auth){
+
+            online_clients[socket.id].admin = true;
 
             db.ref("croustibot/requests/").on("value", snapshot => socket.emit("admin_update_requests", snapshot.val()));
             db.ref("croustibot/scrims/")  .on("value", snapshot => socket.emit("admin_update_scrims", snapshot.val()));
@@ -161,6 +184,15 @@ client.on('ready', () => {
 
             socket.on("admin_edit_dispos", (date, dispo=true) => db.ref("croustibot/dispos/" + new Date(date).ENCODE()).set(dispo.toString()))
             socket.on("admin_edit_streams", (newlist) => { db.ref("croustibot/config/twitch_channels").set(newlist); getStreams(); });
+
+
+            var updateConnected = () => socket.emit("admin_update_online", online_clients);
+            io.on("connection", function(socket){
+                updateConnected();
+                socket.on("admin_panel_login", updateConnected);
+                socket.on("disconnect", updateConnected);
+            });
+            updateConnected();
         }
 
 
@@ -231,6 +263,7 @@ client.on('ready', () => {
                 callback('{"success": false, "message": "Please fill all the required fields"}')
             }
         })
+
     })
 
     client.on('error', error => {
@@ -400,9 +433,6 @@ client.on('message', msg => {
             days.push(jours[day.getDay()] + " " + addZeros(day.getDate()) + "/" + addZeros(day.getMonth()));
             day.setTime(day.getTime()+86400000);
         }
-
-        console.log(days);
-
 
         msg.channel.send("__**@here Quelles sont vos disponibilités ?**__\n")
 

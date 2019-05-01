@@ -12,6 +12,7 @@
     "discord.js": "latest",
     "firebase-admin": "latest",
     "request": "latest",
-    "socket.io": "latest"
+    "socket.io": "latest",
+    "ua-parser-js": "^0.7.19"
   }
 }
