@@ -233,6 +233,13 @@ client.on('ready', () => {
         })
     })
 
+    client.on('error', error => {
+        console.error({
+            message: "CLIENT ERROR",
+            error,
+        })
+    });
+
     function getStreams(){
         db.ref("croustibot/config/twitch_channels").once("value", function(snapshot){
             var channels = snapshot.val() || [];
@@ -257,8 +264,8 @@ client.on('ready', () => {
                         }catch(e){
                             console.error({
                                 message: "CAN'T PARSE TWITCH API RESPONSE",
-                                code: response.statusCode,
-                                error, body
+                                // code: response.statusCode,
+                                // error, body
                             })
                         }
                     }
@@ -267,6 +274,7 @@ client.on('ready', () => {
         });
     }
     setInterval(getStreams, 30000);
+    setInterval(updateCalendar, 30000);
     getStreams();
 
     const getMap = (mapUID, type) => ((mapUID && mapUID.length > 4) ? maps[type][mapUID] : "--");
