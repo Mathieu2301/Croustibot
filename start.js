@@ -67,7 +67,9 @@ client.on('ready', () => {
 
     var online_clients = {};
 
+    io.setMaxListeners(0)
     io.on("connection", function(socket){
+        socket.setMaxListeners(0)
         var ip = socket.handshake.address;
 
         var userAgent = parser.setUA(socket.handshake.headers['user-agent']).getResult();
