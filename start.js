@@ -218,7 +218,7 @@ client.on('ready', () => {
 
                         callback('{"success": true, "message": "We will contact you soon on Discord"}')
         
-                        requests_channel.send("@here Nouvelle demande de scrim")
+                        requests_channel.send("@here New scrim request")
 
                         db.ref("croustibot/requests").push({
                             user: scrim.discordID,
@@ -308,8 +308,53 @@ client.on('ready', () => {
             });
         });
     }
+
+    function autoMessage(){
+        Object.keys(scrims).forEach(i=>{
+
+            var time = scrims[i].time;
+            var split = i.split("-");
+            var date = new Date();
+            date.setFullYear(split[2]);
+            date.setMonth(split[1]-1);
+            date.setDate(split[0]);
+            date.setHours(time.split(":")[0]);
+            date.setMinutes(time.split(":")[1]);
+            date.setSeconds(0);
+
+            if (Date.now() >= date.getTime()-300000 && !scrims[i].reminded){
+                requests_channel.send("@here A scrim will start at " + (scrims[i].time || "--"))
+
+                db.ref("croustibot/scrims/" + i + "/reminded").set(true);
+
+                console.log({
+                    "Team:     ": scrims[i].team,
+                    "\n":"",
+                    "Control map:  ": getMap(scrims[i].maps.control, "control"),
+                    "Hybrid map:   ": getMap(scrims[i].maps.hybrid, "hybrid"),
+                    "Assault map:  ": getMap(scrims[i].maps.assault, "assault"),
+                    "Escort map:    ": getMap(scrims[i].maps.escort, "escort"),
+                })
+
+                newEmbedDesc({
+                    "Team:     ": scrims[i].team,
+                    "\n":"",
+                    "Control map:  ": getMap(scrims[i].maps.control, "control"),
+                    "Hybrid map:   ": getMap(scrims[i].maps.hybrid, "hybrid"),
+                    "Assault map:  ": getMap(scrims[i].maps.assault, "assault"),
+                    "Escort map:    ": getMap(scrims[i].maps.escort, "escort"),
+                }, function(desc){
+                    requests_channel.send(new Discord.RichEmbed().setDescription(desc).setColor("RED"));
+                })
+            }
+        })
+
+    }
+    autoMessage()
+
     setInterval(getStreams, 30000);
     setInterval(updateCalendar, 30000);
+    setInterval(autoMessage, 10000);
     getStreams();
 
     const getMap = (mapUID, type) => ((mapUID && mapUID.length > 4) ? maps[type][mapUID] : "--");
